@@ -153,7 +153,7 @@ primary_question="$2"
 context_file="${3:-}"
 
 model_override="${GEMINI_SECOND_OPINION_MODEL:-}"
-model="${model_override:-gemini-cli-default}"
+model="${model_override:-auto}"
 gemini_cmd="${GEMINI_SECOND_OPINION_CMD:-gemini}"
 failure_mode="${GEMINI_SECOND_OPINION_FAILURE_MODE:-fail-open}"
 timeout_sec="${GEMINI_SECOND_OPINION_TIMEOUT_SEC:-300}"

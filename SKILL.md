@@ -1,6 +1,6 @@
 ---
 name: gemini-second-opinion
-description: Obtain a second-opinion analysis from Gemini CLI before final decisions on hard or high-uncertainty work. Use when handling non-trivial git commit/PR review, writing implementation plans, performing double-check validation, resolving conflicting evidence, or when confidence is not high and an independent perspective can reduce blind spots.
+description: Obtain a second-opinion analysis from Gemini CLI before final decisions on hard or high-uncertainty work. Use when handling non-trivial git commit/PR review, writing implementation plans, performing double-check validation, resolving conflicting evidence, or when uncertainty is high and an independent perspective can reduce blind spots.
 ---
 
 # Gemini Second Opinion
@@ -66,11 +66,11 @@ v3-lean controls:
 
 If `context-file` is omitted, provide context via stdin. If neither is provided, script exits `65`.
 
-### 2.1) Execution policy (required)
+### 2.1) Execution policy (recommended default)
 
-For Codex tool execution, run Gemini-related commands in non-sandbox mode (escalated permissions):
+For Codex tool execution, prefer Gemini-related commands in non-sandbox mode (escalated permissions). If escalation is unavailable in your environment, run the same command in the current execution context and note the limitation:
 
-- Non-sandbox: use tool calls with `sandbox_permissions="require_escalated"` for `second_opinion.sh`.
+- Preferred non-sandbox path: use tool calls with `sandbox_permissions="require_escalated"` for `second_opinion.sh`.
 - Invocation shape (for stable prefix approval): call `second_opinion.sh` directly via absolute path; do not wrap with `/bin/zsh -lc`.
 - If env overrides are needed, `export` variables first, then run the direct command.
 - Keep `approval-mode=default` unless a task explicitly requires a different mode.
@@ -83,6 +83,7 @@ For Codex tool execution, run Gemini-related commands in non-sandbox mode (escal
 
 - `status`: `ok` or `fallback`
 - `task_type`, `model`
+- `model`: explicit override value when `GEMINI_SECOND_OPINION_MODEL` is set, otherwise `auto` (Gemini CLI chooses model)
 - `reason`, `message` (set on fallback)
 - `opinion` (only when status is `ok`), containing:
   - `alternate_perspective` (string)

@@ -18,9 +18,10 @@ Lean Codex skill for getting a Gemini second opinion on hard tasks.
 
 ## Quick Start
 
-Run with a context file:
+Review a commit:
 
 ```bash
+git show <commit_sha> > /tmp/review_ctx.txt
 scripts/second_opinion.sh \
   review-commit \
   "Find correctness and regression risks in this commit" \
