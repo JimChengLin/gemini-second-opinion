@@ -176,7 +176,12 @@ if ! [[ "$max_context_bytes" =~ ^[0-9]+$ ]] || [[ "$max_context_bytes" == "0" ]]
 fi
 
 if ! command -v jq >/dev/null 2>&1; then
-  echo "jq is required for gemini-second-opinion v2" >&2
+  echo "jq is required for gemini-second-opinion" >&2
+  exit 69
+fi
+
+if ! command -v perl >/dev/null 2>&1; then
+  echo "perl is required for gemini-second-opinion" >&2
   exit 69
 fi
 
@@ -215,6 +220,7 @@ fi
 
 bytes=$(wc -c <"$context_tmp" | tr -d ' ')
 if (( bytes > max_context_bytes )); then
+  echo "[gemini-second-opinion] context truncated from ${bytes} bytes to ${max_context_bytes} bytes" >&2
   head -c "$max_context_bytes" "$context_tmp" >"${context_tmp}.trunc"
   mv "${context_tmp}.trunc" "$context_tmp"
 fi

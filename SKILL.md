@@ -21,17 +21,16 @@ Call Gemini for a second opinion when any of the following is true:
 
 Skip Gemini when the task is purely mechanical and low risk.
 
-## Workflow (v3-lean)
+## Workflow
 
 ### 1) Build a compact context packet
 
-Prepare 5 short blocks before invoking Gemini:
+Prepare 4 short blocks before invoking Gemini:
 
 1. `Task`: what must be decided.
 2. `Constraints`: scope, style rules, deadline, environment limits.
 3. `Path Manifest`: workspace root + target directories/files Gemini should inspect directly.
-4. `Current view`: your current best judgment.
-5. `Open questions`: what you are not fully sure about.
+4. `Open questions`: what you are not fully sure about.
 
 Keep the packet concise and factual.
 Prefer explore-first context: provide paths, not pasted file bodies. Do not paste large file contents into the prompt context unless absolutely necessary.
@@ -54,15 +53,17 @@ Use:
 
 Suggested `task-type` values: `review-commit`, `review-diff`, `write-plan`, `double-check`.
 
-v3-lean controls:
+Execution controls:
 
 - Default model: Gemini CLI default selection (no explicit `--model`)
 - Override model: `GEMINI_SECOND_OPINION_MODEL` (set to force a model)
 - Timeout seconds: `GEMINI_SECOND_OPINION_TIMEOUT_SEC` (default `300`)
 - Max context bytes: `GEMINI_SECOND_OPINION_MAX_CONTEXT_BYTES` (default `300000`)
+- Truncation behavior: if context exceeds max bytes, script truncates and prints a warning to stderr
 - Failure mode: `GEMINI_SECOND_OPINION_FAILURE_MODE` (`fail-open` or `fail-closed`, default `fail-open`)
 - Gemini command override: `GEMINI_SECOND_OPINION_CMD` (default `gemini`)
 - Gemini approval mode: `GEMINI_SECOND_OPINION_APPROVAL_MODE` (default `default`)
+- Runtime dependencies: `jq`, `perl`
 
 If `context-file` is omitted, provide context via stdin. If neither is provided, script exits `65`.
 
@@ -165,7 +166,6 @@ cat > /tmp/plan_ctx.txt <<'CTX'
 Task: Refactor data pipeline with zero behavior change.
 Constraints: Keep API stable; finish in 2 phases.
 Evidence: Existing flaky tests in parser module.
-Current view: Start with parser isolation, then migration.
 Open questions: Rollback plan and migration checkpoints.
 CTX
 

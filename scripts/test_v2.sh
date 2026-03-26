@@ -204,7 +204,7 @@ else
 fi
 
 # Test 10: docs reflect single-path workflow
-if grep -q "Workflow (v3-lean)" "$SKILL_FILE" && \
+if grep -q "^## Workflow$" "$SKILL_FILE" && \
   grep -q "second_opinion.sh" "$SKILL_FILE" && \
   grep -q "require_escalated" "$SKILL_FILE" && \
   grep -q "stable prefix approval" "$SKILL_FILE" && \
@@ -232,11 +232,11 @@ else
   ng "skill docs still contain removed subagent path"
 fi
 
-# Test 11: lean patch removed fallback async script
+# Test 11: removed fallback async script
 if [[ ! -e "$SCRIPT_DIR/parallel_review.sh" ]]; then
-  ok "parallel_review.sh removed in v3-lean"
+  ok "parallel_review.sh removed"
 else
-  ng "parallel_review.sh should be removed in v3-lean"
+  ng "parallel_review.sh should be removed"
 fi
 
 # Test 12: subagent wrapper removed

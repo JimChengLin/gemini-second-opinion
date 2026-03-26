@@ -7,6 +7,7 @@ Lean Codex skill for getting a Gemini second opinion on hard tasks.
 - Uses `scripts/second_opinion.sh` as the single execution path.
 - Supports `review-commit`, `review-diff`, `write-plan`, and `double-check` task types.
 - Returns normalized JSON (`ok` or `fallback`) for reliable downstream decisions.
+- Requires `jq` and `perl` at runtime.
 
 ## Repository Layout
 
