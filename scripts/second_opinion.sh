@@ -7,73 +7,15 @@ usage() {
 
 TICK_MS=200
 TICK_SLEEP_SEC=0.2
+PROGRESS_HEARTBEAT_SEC=30
 
 calc_max_ticks() {
   local sec="$1"
   echo $(( (sec * 1000 + TICK_MS - 1) / TICK_MS ))
 }
 
-lock_dir_mtime_epoch() {
-  local dir="$1"
-  if stat -f %m "$dir" >/dev/null 2>&1; then
-    stat -f %m "$dir"
-    return 0
-  fi
-  if stat -c %Y "$dir" >/dev/null 2>&1; then
-    stat -c %Y "$dir"
-    return 0
-  fi
-  return 1
-}
-
 wait_tick() {
   sleep "$TICK_SLEEP_SEC"
-}
-
-acquire_lock() {
-  local timeout_sec="$1"
-  local lock_dir="$2"
-  local orphan_grace_sec="$3"
-  local max_ticks
-  max_ticks="$(calc_max_ticks "$timeout_sec")"
-  local ticks=0
-
-  while true; do
-    if mkdir "$lock_dir" 2>/dev/null; then
-      printf '%s\n' "$$" >"${lock_dir}/pid"
-      lock_acquired=1
-      return 0
-    fi
-
-    # Reap orphaned lock dirs without pid only after a grace window.
-    # This avoids deleting a freshly-created lock that has not written pid yet.
-    if [[ -d "$lock_dir" && ! -f "${lock_dir}/pid" ]]; then
-      local now_ts mtime_ts age_sec
-      now_ts="$(date +%s)"
-      mtime_ts="$(lock_dir_mtime_epoch "$lock_dir" 2>/dev/null || echo "$now_ts")"
-      age_sec=$((now_ts - mtime_ts))
-      if (( age_sec >= orphan_grace_sec )); then
-        rm -rf "$lock_dir" 2>/dev/null || true
-        continue
-      fi
-    fi
-
-    # Reap stale lock left by a dead owner process.
-    if [[ -f "${lock_dir}/pid" ]]; then
-      local owner_pid
-      owner_pid="$(cat "${lock_dir}/pid" 2>/dev/null || true)"
-      if [[ "$owner_pid" =~ ^[0-9]+$ ]] && ! kill -0 "$owner_pid" 2>/dev/null; then
-        rm -rf "$lock_dir" 2>/dev/null || true
-        continue
-      fi
-    fi
-
-    if (( ticks >= max_ticks )); then
-      return 1
-    fi
-    wait_tick
-    ticks=$((ticks + 1))
-  done
 }
 
 emit_json() {
@@ -127,6 +69,8 @@ run_with_timeout() {
   local use_group_kill=0
   local max_ticks
   max_ticks="$(calc_max_ticks "$sec")"
+  local heartbeat_ticks
+  heartbeat_ticks="$(calc_max_ticks "$PROGRESS_HEARTBEAT_SEC")"
   local ticks=0
 
   if command -v perl >/dev/null 2>&1; then
@@ -140,8 +84,14 @@ run_with_timeout() {
     "$@" >"$out_file" 2>"$err_file" &
   fi
   local pid=$!
+  echo "[gemini-second-opinion] waiting for Gemini response (timeout ${sec}s)" >&2
 
   while kill -0 "$pid" 2>/dev/null; do
+    if (( heartbeat_ticks > 0 && ticks > 0 && ticks % heartbeat_ticks == 0 )); then
+      local elapsed_sec
+      elapsed_sec=$((ticks * TICK_MS / 1000))
+      echo "[gemini-second-opinion] still running (${elapsed_sec}s elapsed / ${sec}s timeout)" >&2
+    fi
     if (( ticks >= max_ticks )); then
       if (( use_group_kill )); then
         kill -TERM -- "-$pid" 2>/dev/null || true
@@ -210,9 +160,6 @@ gemini_cmd="${GEMINI_SECOND_OPINION_CMD:-gemini}"
 failure_mode="${GEMINI_SECOND_OPINION_FAILURE_MODE:-fail-open}"
 timeout_sec="${GEMINI_SECOND_OPINION_TIMEOUT_SEC:-300}"
 max_context_bytes="${GEMINI_SECOND_OPINION_MAX_CONTEXT_BYTES:-120000}"
-lock_dir="${GEMINI_SECOND_OPINION_LOCK_DIR:-/tmp/gemini-second-opinion.lock}"
-lock_timeout_sec="${GEMINI_SECOND_OPINION_LOCK_TIMEOUT_SEC:-240}"
-lock_orphan_grace_sec="${GEMINI_SECOND_OPINION_LOCK_ORPHAN_GRACE_SEC:-3}"
 approval_mode="${GEMINI_SECOND_OPINION_APPROVAL_MODE:-default}"
 
 if [[ "$failure_mode" != "fail-open" && "$failure_mode" != "fail-closed" ]]; then
@@ -230,16 +177,6 @@ if ! [[ "$max_context_bytes" =~ ^[0-9]+$ ]] || [[ "$max_context_bytes" == "0" ]]
   exit 66
 fi
 
-if ! [[ "$lock_timeout_sec" =~ ^[0-9]+$ ]] || [[ "$lock_timeout_sec" == "0" ]]; then
-  echo "Invalid GEMINI_SECOND_OPINION_LOCK_TIMEOUT_SEC: $lock_timeout_sec" >&2
-  exit 66
-fi
-
-if ! [[ "$lock_orphan_grace_sec" =~ ^[0-9]+$ ]]; then
-  echo "Invalid GEMINI_SECOND_OPINION_LOCK_ORPHAN_GRACE_SEC: $lock_orphan_grace_sec" >&2
-  exit 66
-fi
-
 if ! command -v jq >/dev/null 2>&1; then
   echo "jq is required for gemini-second-opinion v2" >&2
   exit 69
@@ -253,12 +190,8 @@ context_tmp="$(mktemp)"
 raw_tmp="$(mktemp)"
 err_tmp="$(mktemp)"
 json_tmp="$(mktemp)"
-lock_acquired=0
 
 cleanup() {
-  if (( lock_acquired )); then
-    rm -rf "$lock_dir" 2>/dev/null || true
-  fi
   rm -f "$context_tmp" "$raw_tmp" "$err_tmp" "$json_tmp"
 }
 trap cleanup EXIT
@@ -313,10 +246,6 @@ Return exactly one JSON object with these fields:
 - next_verification: array of strings
 PROMPT
 )"
-
-if ! acquire_lock "$lock_timeout_sec" "$lock_dir" "$lock_orphan_grace_sec"; then
-  handle_failure "gemini-lock-timeout" "lock busy after ${lock_timeout_sec}s: ${lock_dir}" 73
-fi
 
 gemini_args=(--extensions core)
 if [[ -n "$model_override" ]]; then

@@ -63,22 +63,19 @@ v3-lean controls:
 - Failure mode: `GEMINI_SECOND_OPINION_FAILURE_MODE` (`fail-open` or `fail-closed`, default `fail-open`)
 - Gemini command override: `GEMINI_SECOND_OPINION_CMD` (default `gemini`)
 - Gemini approval mode: `GEMINI_SECOND_OPINION_APPROVAL_MODE` (default `default`)
-- Global lock dir: `GEMINI_SECOND_OPINION_LOCK_DIR` (default `/tmp/gemini-second-opinion.lock`)
-- Lock wait seconds: `GEMINI_SECOND_OPINION_LOCK_TIMEOUT_SEC` (default `240`)
-- Orphan lock grace seconds (missing `pid` only): `GEMINI_SECOND_OPINION_LOCK_ORPHAN_GRACE_SEC` (default `3`)
 
 If `context-file` is omitted, provide context via stdin. If neither is provided, script exits `65`.
 
 ### 2.1) Execution policy (required)
 
-For Codex tool execution, run Gemini-related commands in non-sandbox mode (escalated permissions), and keep a single active Gemini second-opinion run at a time:
+For Codex tool execution, run Gemini-related commands in non-sandbox mode (escalated permissions):
 
 - Non-sandbox: use tool calls with `sandbox_permissions="require_escalated"` for `second_opinion.sh`.
 - Invocation shape (for stable prefix approval): call `second_opinion.sh` directly via absolute path; do not wrap with `/bin/zsh -lc`.
 - If env overrides are needed, `export` variables first, then run the direct command.
 - Keep `approval-mode=default` unless a task explicitly requires a different mode.
 - File access rules: follow the workspace-scope access order defined in Step 1.
-- Single concurrency: `second_opinion.sh` enforces a global lock; concurrent contenders return `gemini-lock-timeout` (or fail-closed error).
+- Timeout discipline: once `second_opinion.sh` is running, treat no-output periods as normal waiting. Do not interrupt, restart, or reduce timeout mid-flight. Wait for process exit or current `GEMINI_SECOND_OPINION_TIMEOUT_SEC` expiry.
 
 ### 3) Expect structured output
 
