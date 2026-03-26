@@ -7,7 +7,7 @@ description: Obtain a second-opinion analysis from Gemini CLI before final decis
 
 ## Overview
 
-Use Gemini CLI as an independent reviewer when tasks are hard, risky, or ambiguous. Use model `gemini-3-pro-preview` by default for deeper semantic reasoning. Summarize context first, ask Gemini for critique and alternatives, then integrate the result into the final decision.
+Use Gemini CLI as an independent reviewer when tasks are hard, risky, or ambiguous. By default, let Gemini CLI choose the model. Summarize context first, ask Gemini for critique and alternatives, then integrate the result into the final decision.
 
 ## Trigger Rules
 
@@ -56,8 +56,8 @@ Suggested `task-type` values: `review-commit`, `write-plan`, `double-check`.
 
 v3-lean controls:
 
-- Default model: `gemini-3-pro-preview`
-- Override model: `GEMINI_SECOND_OPINION_MODEL`
+- Default model: Gemini CLI default selection (no explicit `--model`)
+- Override model: `GEMINI_SECOND_OPINION_MODEL` (set to force a model)
 - Timeout seconds: `GEMINI_SECOND_OPINION_TIMEOUT_SEC` (default `300`)
 - Max context bytes: `GEMINI_SECOND_OPINION_MAX_CONTEXT_BYTES` (default `120000`)
 - Failure mode: `GEMINI_SECOND_OPINION_FAILURE_MODE` (`fail-open` or `fail-closed`, default `fail-open`)

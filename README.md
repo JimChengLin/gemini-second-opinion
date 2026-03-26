@@ -39,7 +39,7 @@ scripts/second_opinion.sh \
 
 ## Key Environment Variables
 
-- `GEMINI_SECOND_OPINION_MODEL` (default: `gemini-3-pro-preview`)
+- `GEMINI_SECOND_OPINION_MODEL` (default: unset, Gemini CLI chooses model)
 - `GEMINI_SECOND_OPINION_TIMEOUT_SEC` (default: `300`)
 - `GEMINI_SECOND_OPINION_MAX_CONTEXT_BYTES` (default: `120000`)
 - `GEMINI_SECOND_OPINION_FAILURE_MODE` (`fail-open`/`fail-closed`, default: `fail-open`)

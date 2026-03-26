@@ -204,7 +204,8 @@ task_type="$1"
 primary_question="$2"
 context_file="${3:-}"
 
-model="${GEMINI_SECOND_OPINION_MODEL:-gemini-3-pro-preview}"
+model_override="${GEMINI_SECOND_OPINION_MODEL:-}"
+model="${model_override:-gemini-cli-default}"
 gemini_cmd="${GEMINI_SECOND_OPINION_CMD:-gemini}"
 failure_mode="${GEMINI_SECOND_OPINION_FAILURE_MODE:-fail-open}"
 timeout_sec="${GEMINI_SECOND_OPINION_TIMEOUT_SEC:-300}"
@@ -317,7 +318,10 @@ if ! acquire_lock "$lock_timeout_sec" "$lock_dir" "$lock_orphan_grace_sec"; then
   handle_failure "gemini-lock-timeout" "lock busy after ${lock_timeout_sec}s: ${lock_dir}" 73
 fi
 
-gemini_args=(--extensions core --model "$model")
+gemini_args=(--extensions core)
+if [[ -n "$model_override" ]]; then
+  gemini_args+=(--model "$model_override")
+fi
 if [[ -n "$approval_mode" ]]; then
   gemini_args+=(--approval-mode "$approval_mode")
 fi
