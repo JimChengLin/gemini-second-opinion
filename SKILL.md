@@ -52,14 +52,14 @@ Use:
   [context-file]
 ```
 
-Suggested `task-type` values: `review-commit`, `write-plan`, `double-check`.
+Suggested `task-type` values: `review-commit`, `review-diff`, `write-plan`, `double-check`.
 
 v3-lean controls:
 
 - Default model: Gemini CLI default selection (no explicit `--model`)
 - Override model: `GEMINI_SECOND_OPINION_MODEL` (set to force a model)
 - Timeout seconds: `GEMINI_SECOND_OPINION_TIMEOUT_SEC` (default `300`)
-- Max context bytes: `GEMINI_SECOND_OPINION_MAX_CONTEXT_BYTES` (default `120000`)
+- Max context bytes: `GEMINI_SECOND_OPINION_MAX_CONTEXT_BYTES` (default `300000`)
 - Failure mode: `GEMINI_SECOND_OPINION_FAILURE_MODE` (`fail-open` or `fail-closed`, default `fail-open`)
 - Gemini command override: `GEMINI_SECOND_OPINION_CMD` (default `gemini`)
 - Gemini approval mode: `GEMINI_SECOND_OPINION_APPROVAL_MODE` (default `default`)
@@ -89,7 +89,6 @@ For Codex tool execution, run Gemini-related commands in non-sandbox mode (escal
   - `risks` (array of strings)
   - `strongest_counterargument` (string)
   - `recommendation` (string)
-  - `confidence` (0-1)
   - `next_verification` (array of strings)
 
 ### 4) Integrate, do not outsource judgment
@@ -145,6 +144,16 @@ git show <commit_sha> > /tmp/review_ctx.txt
 ~/.codex/skills/gemini-second-opinion/scripts/second_opinion.sh \
   review-commit \
   "Find correctness and regression risks in this commit" \
+  /tmp/review_ctx.txt
+```
+
+### Diff review (uncommitted changes)
+
+```bash
+git diff > /tmp/review_ctx.txt
+~/.codex/skills/gemini-second-opinion/scripts/second_opinion.sh \
+  review-diff \
+  "Find correctness and regression risks in this diff" \
   /tmp/review_ctx.txt
 ```
 

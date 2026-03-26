@@ -120,8 +120,6 @@ is_valid_opinion_json() {
     (.risks | type == "array" and all(.[]; type == "string")) and
     (.strongest_counterargument | type == "string") and
     (.recommendation | type == "string") and
-    (.confidence | type == "number") and
-    (.confidence >= 0 and .confidence <= 1) and
     (.next_verification | type == "array" and all(.[]; type == "string"))
   ' "$file" >/dev/null 2>&1
 }
@@ -159,7 +157,7 @@ model="${model_override:-gemini-cli-default}"
 gemini_cmd="${GEMINI_SECOND_OPINION_CMD:-gemini}"
 failure_mode="${GEMINI_SECOND_OPINION_FAILURE_MODE:-fail-open}"
 timeout_sec="${GEMINI_SECOND_OPINION_TIMEOUT_SEC:-300}"
-max_context_bytes="${GEMINI_SECOND_OPINION_MAX_CONTEXT_BYTES:-120000}"
+max_context_bytes="${GEMINI_SECOND_OPINION_MAX_CONTEXT_BYTES:-300000}"
 approval_mode="${GEMINI_SECOND_OPINION_APPROVAL_MODE:-default}"
 
 if [[ "$failure_mode" != "fail-open" && "$failure_mode" != "fail-closed" ]]; then
@@ -242,7 +240,6 @@ Return exactly one JSON object with these fields:
 - risks: array of strings
 - strongest_counterargument: string
 - recommendation: string
-- confidence: number between 0 and 1
 - next_verification: array of strings
 PROMPT
 )"

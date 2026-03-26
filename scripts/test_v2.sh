@@ -74,7 +74,7 @@ mock_ok="$(mktemp)"
 cat > "$mock_ok" <<'MOCK'
 #!/usr/bin/env bash
 cat <<'JSON'
-{"alternate_perspective":"alt","risks":["r1"],"strongest_counterargument":"c","recommendation":"do x","confidence":0.7,"next_verification":["v1"]}
+{"alternate_perspective":"alt","risks":["r1"],"strongest_counterargument":"c","recommendation":"do x","next_verification":["v1"]}
 JSON
 MOCK
 chmod +x "$mock_ok"
@@ -84,7 +84,7 @@ cat > "$mock_slow" <<'MOCK'
 #!/usr/bin/env bash
 sleep 3
 cat <<'JSON'
-{"alternate_perspective":"alt","risks":["r1"],"strongest_counterargument":"c","recommendation":"do x","confidence":0.7,"next_verification":["v1"]}
+{"alternate_perspective":"alt","risks":["r1"],"strongest_counterargument":"c","recommendation":"do x","next_verification":["v1"]}
 JSON
 MOCK
 chmod +x "$mock_slow"
@@ -93,7 +93,7 @@ mock_bad_type="$(mktemp)"
 cat > "$mock_bad_type" <<'MOCK'
 #!/usr/bin/env bash
 cat <<'JSON'
-{"alternate_perspective":"alt","risks":[{"bad":1}],"strongest_counterargument":"c","recommendation":"do x","confidence":0.7,"next_verification":["v1"]}
+{"alternate_perspective":"alt","risks":[{"bad":1}],"strongest_counterargument":"c","recommendation":"do x","next_verification":["v1"]}
 JSON
 MOCK
 chmod +x "$mock_bad_type"
@@ -104,7 +104,7 @@ cat > "$mock_log_json" <<'MOCK'
 echo "Loaded cached credentials."
 echo "Log: {init}"
 cat <<'JSON'
-{"alternate_perspective":"alt","risks":["r1"],"strongest_counterargument":"c","recommendation":"do x","confidence":0.7,"next_verification":["v1"]}
+{"alternate_perspective":"alt","risks":["r1"],"strongest_counterargument":"c","recommendation":"do x","next_verification":["v1"]}
 JSON
 MOCK
 chmod +x "$mock_log_json"
@@ -121,13 +121,25 @@ chmod +x "$mock_tree"
 # Test 5: success path with valid JSON from mock gemini
 if GEMINI_SECOND_OPINION_CMD="$mock_ok" \
   "$SCRIPT" review-commit "q" < <(printf 'ctx') > /tmp/so_t5_out.json 2>/tmp/so_t5_err.txt; then
-  if jq -e '.status=="ok" and .opinion.confidence==0.7' /tmp/so_t5_out.json >/dev/null; then
-    ok "success path emits validated opinion"
+  if jq -e '.status=="ok" and .opinion.recommendation=="do x" and (.opinion|has("confidence")|not)' /tmp/so_t5_out.json >/dev/null; then
+    ok "success path emits validated opinion without confidence"
   else
     ng "success payload invalid"
   fi
 else
   ng "success path should return zero"
+fi
+
+# Test 5b: review-diff task type works
+if GEMINI_SECOND_OPINION_CMD="$mock_ok" \
+  "$SCRIPT" review-diff "q" < <(printf 'ctx') > /tmp/so_t5b_out.json 2>/tmp/so_t5b_err.txt; then
+  if jq -e '.status=="ok" and .task_type=="review-diff" and .opinion.recommendation=="do x"' /tmp/so_t5b_out.json >/dev/null; then
+    ok "review-diff task type works on success path"
+  else
+    ng "review-diff success payload invalid"
+  fi
+else
+  ng "review-diff success path should return zero"
 fi
 
 # Test 6: timeout fallback

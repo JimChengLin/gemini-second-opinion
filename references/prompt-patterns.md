@@ -17,6 +17,21 @@ Context packet checklist:
 4. Risk surface (state changes, migrations, concurrency, performance)
 5. Known uncertainty
 
+## review-diff
+
+Primary question examples:
+
+- `Review this uncommitted diff for correctness, behavior regression, and missing tests.`
+- `Find risky edge cases in these staged/working-tree changes.`
+
+Context packet checklist:
+
+1. Scope of working-tree or staged diff
+2. Diff summary by file/module
+3. Existing tests touched or missing
+4. Risk surface (state changes, migrations, concurrency, performance)
+5. Known uncertainty
+
 ## write-plan
 
 Primary question examples:

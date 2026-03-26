@@ -5,7 +5,7 @@ Lean Codex skill for getting a Gemini second opinion on hard tasks.
 ## What It Does
 
 - Uses `scripts/second_opinion.sh` as the single execution path.
-- Supports `review-commit`, `write-plan`, and `double-check` task types.
+- Supports `review-commit`, `review-diff`, `write-plan`, and `double-check` task types.
 - Returns normalized JSON (`ok` or `fallback`) for reliable downstream decisions.
 
 ## Repository Layout
@@ -27,6 +27,16 @@ scripts/second_opinion.sh \
   /tmp/review_ctx.txt
 ```
 
+Review uncommitted diff:
+
+```bash
+git diff > /tmp/review_ctx.txt
+scripts/second_opinion.sh \
+  review-diff \
+  "Find correctness and regression risks in this diff" \
+  /tmp/review_ctx.txt
+```
+
 Run with stdin:
 
 ```bash
@@ -40,7 +50,7 @@ scripts/second_opinion.sh \
 
 - `GEMINI_SECOND_OPINION_MODEL` (default: unset, Gemini CLI chooses model)
 - `GEMINI_SECOND_OPINION_TIMEOUT_SEC` (default: `300`)
-- `GEMINI_SECOND_OPINION_MAX_CONTEXT_BYTES` (default: `120000`)
+- `GEMINI_SECOND_OPINION_MAX_CONTEXT_BYTES` (default: `300000`)
 - `GEMINI_SECOND_OPINION_FAILURE_MODE` (`fail-open`/`fail-closed`, default: `fail-open`)
 - `GEMINI_SECOND_OPINION_CMD` (default: `gemini`)
 - `GEMINI_SECOND_OPINION_APPROVAL_MODE` (default: `default`)
