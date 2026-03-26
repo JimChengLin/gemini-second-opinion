@@ -1,0 +1,4 @@
+interface:
+  display_name: "Gemini Second Opinion"
+  short_description: "Second-opinion for commit review, planning, and double-checks"
+  default_prompt: "Use Gemini second-opinion for hard review/plan/check tasks. Run Gemini calls via non-sandbox (escalated) execution and keep single concurrency. Then present Codex View, Gemini View, and Merged Decision with Adopt/Investigate/Reject mapping."
