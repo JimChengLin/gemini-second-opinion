@@ -1,48 +1,51 @@
 ---
 name: gemini-second-opinion
-description: Obtain a second-opinion analysis from Gemini CLI before final decisions on hard or high-uncertainty work. Use when handling non-trivial git commit/PR review, writing implementation plans, performing double-check validation, resolving conflicting evidence, or when uncertainty is high and an independent perspective can reduce blind spots.
+description: Use Gemini CLI as an independent reviewer for hard or high-uncertainty commit review, planning, and double-check tasks.
 ---
 
 # Gemini Second Opinion
 
 ## Overview
 
-Use Gemini CLI as an independent reviewer when tasks are hard, risky, or ambiguous. By default, let Gemini CLI choose the model. Summarize context first, ask Gemini for critique and alternatives, then integrate the result into the final decision.
+Use Gemini CLI as an independent reviewer when risk or uncertainty is non-trivial. Keep context compact, request critique, then make the final call with explicit Adopt/Investigate/Reject mapping.
 
 ## Trigger Rules
 
-Call Gemini for a second opinion when any of the following is true:
+Use this skill when one of these is true:
 
-- Review a non-trivial commit or PR.
-- Write a plan with tradeoffs or sequencing risk.
-- Double-check a solution before finalizing.
-- Resolve uncertainty between multiple plausible approaches.
-- Make a high-impact decision where missing one edge case is costly.
+- Non-trivial commit/PR review.
+- Plan design with sequencing or rollback risk.
+- Double-check before finalizing.
+- Multiple plausible approaches with unresolved uncertainty.
+- High-impact decision where missing an edge case is costly.
 
-Skip Gemini when the task is purely mechanical and low risk.
+Skip for purely mechanical, low-risk tasks.
 
 ## Workflow
 
 ### 1) Build a compact context packet
 
-Prepare 4 short blocks before invoking Gemini:
+Prepare 4 short blocks:
 
-1. `Task`: what must be decided.
-2. `Constraints`: scope, style rules, deadline, environment limits.
-3. `Path Manifest`: workspace root + target directories/files Gemini should inspect directly.
-4. `Open questions`: what you are not fully sure about.
+1. `Task`
+2. `Constraints`
+3. `Path Manifest`
+4. `Open questions`
 
-Keep the packet concise and factual.
-Prefer explore-first context: provide paths, not pasted file bodies. Do not paste large file contents into the prompt context unless absolutely necessary.
-Gemini read tools are workspace-scoped. Use this access order for local-file review:
+Guidelines:
 
-1. Set Gemini command `workdir` to the target root.
-2. If files are still out-of-workspace, sync a workspace mirror copy and put mirror paths in `Path Manifest`.
+- Keep it factual and concise.
+- Prefer explore-first context (paths, not large pasted bodies).
+- Do not paste large file contents unless absolutely necessary.
+- Gemini read tools are workspace-scoped.
+
+File access order:
+
+1. Set command `workdir` to target root.
+2. If still out-of-workspace, copy to a workspace mirror and reference mirror paths in `Path Manifest`.
 3. Do not rely on workspace symlinks into out-of-workspace targets; resolved real paths are denied by `read_file`.
 
 ### 2) Run second-opinion script
-
-Use:
 
 ```bash
 ~/.codex/skills/gemini-second-opinion/scripts/second_opinion.sh \
@@ -51,32 +54,37 @@ Use:
   [context-file]
 ```
 
-Suggested `task-type` values: `review-commit`, `review-diff`, `write-plan`, `double-check`.
+Suggested task types: `review-commit`, `review-diff`, `write-plan`, `double-check`.
+
+`write-plan` supports two modes:
+
+- Plan generation: no concrete plan yet, ask Gemini to propose one.
+- Plan challenge: you already have a draft plan, ask Gemini to stress-test it.
+
+Use these fixed starters to reduce ambiguity:
+
+- `Propose a phased implementation plan ...`
+- `Challenge this implementation plan ...`
 
 Execution controls:
 
-- Default model: Gemini CLI default selection (no explicit `--model`)
-- Override model: `GEMINI_SECOND_OPINION_MODEL` (set to force a model)
-- Timeout seconds: `GEMINI_SECOND_OPINION_TIMEOUT_SEC` (default `300`)
-- Max context bytes: `GEMINI_SECOND_OPINION_MAX_CONTEXT_BYTES` (default `300000`)
-- Truncation behavior: if context exceeds max bytes, script truncates and prints a warning to stderr
-- Failure mode: `GEMINI_SECOND_OPINION_FAILURE_MODE` (`fail-open` or `fail-closed`, default `fail-open`)
-- Gemini command override: `GEMINI_SECOND_OPINION_CMD` (default `gemini`)
-- Gemini approval mode: `GEMINI_SECOND_OPINION_APPROVAL_MODE` (default `default`)
-- Runtime dependencies: `jq`, `perl`
+- `GEMINI_SECOND_OPINION_MODEL` (optional override)
+- `GEMINI_SECOND_OPINION_TIMEOUT_SEC` (default `300`)
+- `GEMINI_SECOND_OPINION_MAX_CONTEXT_BYTES` (default `300000`)
+- `GEMINI_SECOND_OPINION_FAILURE_MODE` (`fail-open` or `fail-closed`, default `fail-open`)
+- `GEMINI_SECOND_OPINION_CMD` (default `gemini`)
+- `GEMINI_SECOND_OPINION_APPROVAL_MODE` (default `default`)
 
-If `context-file` is omitted, provide context via stdin. If neither is provided, script exits `65`.
+If `context-file` is omitted, pipe context via stdin. If neither is provided, exit `65`.
 
 ### 2.1) Execution policy (recommended default)
 
-For Codex tool execution, prefer Gemini-related commands in non-sandbox mode (escalated permissions). If escalation is unavailable in your environment, run the same command in the current execution context and note the limitation:
-
-- Preferred non-sandbox path: use tool calls with `sandbox_permissions="require_escalated"` for `second_opinion.sh`.
-- Invocation shape (for stable prefix approval): call `second_opinion.sh` directly via absolute path; do not wrap with `/bin/zsh -lc`.
-- If env overrides are needed, `export` variables first, then run the direct command.
-- Keep `approval-mode=default` unless a task explicitly requires a different mode.
-- File access rules: follow the workspace-scope access order defined in Step 1.
-- Timeout discipline: once `second_opinion.sh` is running, treat no-output periods as normal waiting. Do not interrupt, restart, or reduce timeout mid-flight. Wait for process exit or current `GEMINI_SECOND_OPINION_TIMEOUT_SEC` expiry.
+- Preferred path: use tool calls with `sandbox_permissions="require_escalated"` for `second_opinion.sh`.
+- Invocation shape (for stable prefix approval): call `second_opinion.sh` directly by absolute path; do not wrap with `/bin/zsh -lc`.
+- If env overrides are needed, `export` first, then run the direct command.
+- Keep `approval-mode=default` unless a task explicitly needs different behavior.
+- Follow the workspace-scoped file access order from Step 1.
+- Timeout discipline: once `second_opinion.sh` starts, treat quiet periods as normal waiting. Do not interrupt, restart, or reduce timeout mid-flight.
 
 ### 3) Expect structured output
 
@@ -84,9 +92,9 @@ For Codex tool execution, prefer Gemini-related commands in non-sandbox mode (es
 
 - `status`: `ok` or `fallback`
 - `task_type`, `model`
-- `model`: explicit override value when `GEMINI_SECOND_OPINION_MODEL` is set, otherwise `auto` (Gemini CLI chooses model)
-- `reason`, `message` (set on fallback)
-- `opinion` (only when status is `ok`), containing:
+- `model`: override value when set, else `auto`
+- `reason`, `message` (fallback only)
+- `opinion` (only when `status=ok`):
   - `assessment` (string)
   - `risks` (array of strings)
   - `strongest_counterargument` (string)
@@ -95,40 +103,38 @@ For Codex tool execution, prefer Gemini-related commands in non-sandbox mode (es
 
 ### 4) Integrate, do not outsource judgment
 
-Classify Gemini feedback into:
+Classify feedback into:
 
-- `Adopt`: strong evidence, improves correctness.
-- `Investigate`: plausible but unproven; verify quickly.
-- `Reject`: conflicts with constraints or evidence.
+- `Adopt`
+- `Investigate`
+- `Reject`
 
-For each `Merged Decision` entry, include explicit source attribution so no item appears out of nowhere:
+For each merged item, include source tags:
 
-- `source: Gemini recommendation` when directly from `recommendation` or `risks`.
-- `source: Gemini strongest_counterargument` when coming from counterargument path.
-- `source: Codex analysis` when from your independent review.
-- If inferred (not explicitly proposed), mark it as inferred, e.g. `source: Codex inferred alternative`.
+- `source: Gemini recommendation` for recommendation/risks-derived items.
+- `source: Gemini strongest_counterargument` for counterargument-derived items.
+- `source: Codex analysis` for your independent review.
+- If inferred, label as inferred (for example: `source: Codex inferred alternative`).
 
-Never write a bare `Reject` line without a source. If there is no concrete option to reject, write `Reject: none`.
+Never write a bare `Reject` line without a source. If there is no concrete rejection, write `Reject: none`.
 
-Always present conclusions in this order:
+Always present:
 
-1. `Codex View`: your own independent analysis.
-2. `Gemini View`: key points from second opinion.
-3. `Merged Decision`: final decision with `Adopt/Investigate/Reject` mapping and per-item `source` tags.
+1. `Codex View`
+2. `Gemini View`
+3. `Merged Decision` with Adopt/Investigate/Reject mapping and per-item `source` tags.
 
-### 5) Cleanup
+### 5) Loop and cleanup
 
-After each cycle, clean `/tmp/so_t*`, `/tmp/gso_*`, and `.tmp_skill_review`.
+Iteration loop:
 
-## Review-Improve Loop
-
-When iterating (review -> patch -> re-review), follow this exact loop:
-
-1. Reload this skill file from `$CODEX_HOME/skills/gemini-second-opinion/SKILL.md` before each cycle.
-2. Run one review cycle with `Codex View + Gemini View + Merged Decision`.
+1. Reload this skill file before each cycle.
+2. Run one review cycle (`Codex View + Gemini View + Merged Decision`).
 3. Apply targeted patch.
 4. Re-run validation/tests.
 5. Repeat until no high-severity findings remain.
+
+After each cycle, clean `/tmp/so_t*`, `/tmp/gso_*`, and `.tmp_skill_review`.
 
 ## Guardrails
 
@@ -159,21 +165,22 @@ git diff > /tmp/review_ctx.txt
   /tmp/review_ctx.txt
 ```
 
-### Plan writing
+### Plan writing (generation or challenge)
 
 ```bash
 cat > /tmp/plan_ctx.txt <<'CTX'
-Task: Refactor data pipeline with zero behavior change.
-Constraints: Keep API stable; finish in 2 phases.
-Evidence: Existing flaky tests in parser module.
-Open questions: Rollback plan and migration checkpoints.
+Task: Refactor pipeline with zero behavior change.
+Constraints: Keep API stable; phased rollout with rollback/validation checkpoints.
 CTX
 
 ~/.codex/skills/gemini-second-opinion/scripts/second_opinion.sh \
   write-plan \
-  "Challenge this phased plan and suggest safer sequencing" \
+  "Propose a phased implementation plan with rollback and validation checkpoints" \
   /tmp/plan_ctx.txt
 ```
+
+If you already have a draft plan, use the same command and replace the prompt with:
+`"Challenge this implementation plan and propose safer sequencing"`
 
 ### Double check
 

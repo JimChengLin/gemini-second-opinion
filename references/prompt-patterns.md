@@ -34,8 +34,19 @@ Context packet checklist:
 
 ## write-plan
 
+Use one of two intents:
+
+- Plan generation: create a plan from goals and constraints.
+- Plan challenge: stress-test an existing draft plan.
+
+Recommended fixed starters:
+
+- `Propose a phased implementation plan ...`
+- `Challenge this implementation plan ...`
+
 Primary question examples:
 
+- `Propose a phased implementation plan with rollback and validation checkpoints.`
 - `Challenge this implementation plan and propose safer sequencing.`
 - `What rollback and validation checkpoints should be added?`
 
