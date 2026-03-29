@@ -74,7 +74,7 @@ mock_ok="$(mktemp)"
 cat > "$mock_ok" <<'MOCK'
 #!/usr/bin/env bash
 cat <<'JSON'
-{"assessment":"alt","risks":["r1"],"strongest_counterargument":"c","recommendation":"do x","next_verification":["v1"]}
+{"risks":["r1"],"strongest_counterargument":"c","recommendation":"do x","next_verification":["v1"]}
 JSON
 MOCK
 chmod +x "$mock_ok"
@@ -84,7 +84,7 @@ cat > "$mock_slow" <<'MOCK'
 #!/usr/bin/env bash
 sleep 3
 cat <<'JSON'
-{"assessment":"alt","risks":["r1"],"strongest_counterargument":"c","recommendation":"do x","next_verification":["v1"]}
+{"risks":["r1"],"strongest_counterargument":"c","recommendation":"do x","next_verification":["v1"]}
 JSON
 MOCK
 chmod +x "$mock_slow"
@@ -93,7 +93,7 @@ mock_bad_type="$(mktemp)"
 cat > "$mock_bad_type" <<'MOCK'
 #!/usr/bin/env bash
 cat <<'JSON'
-{"assessment":"alt","risks":[{"bad":1}],"strongest_counterargument":"c","recommendation":"do x","next_verification":["v1"]}
+{"risks":[{"bad":1}],"strongest_counterargument":"c","recommendation":"do x","next_verification":["v1"]}
 JSON
 MOCK
 chmod +x "$mock_bad_type"
@@ -104,7 +104,7 @@ cat > "$mock_log_json" <<'MOCK'
 echo "Loaded cached credentials."
 echo "Log: {init}"
 cat <<'JSON'
-{"assessment":"alt","risks":["r1"],"strongest_counterargument":"c","recommendation":"do x","next_verification":["v1"]}
+{"risks":["r1"],"strongest_counterargument":"c","recommendation":"do x","next_verification":["v1"]}
 JSON
 MOCK
 chmod +x "$mock_log_json"

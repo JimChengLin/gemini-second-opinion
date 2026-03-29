@@ -101,7 +101,6 @@ is_valid_opinion_json() {
   local file="$1"
   jq -e '
     type == "object" and
-    (.assessment | type == "string") and
     (.risks | type == "array" and all(.[]; type == "string")) and
     (.strongest_counterargument | type == "string") and
     (.recommendation | type == "string") and
@@ -228,7 +227,6 @@ ${context_packet}
 === END_CONTEXT ===
 
 Return exactly one JSON object with these fields:
-- assessment: string
 - risks: array of strings
 - strongest_counterargument: string
 - recommendation: string

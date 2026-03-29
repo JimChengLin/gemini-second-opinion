@@ -95,7 +95,6 @@ If `context-file` is omitted, pipe context via stdin. If neither is provided, ex
 - `model`: override value when set, else `auto`
 - `reason`, `message` (fallback only)
 - `opinion` (only when `status=ok`):
-  - `assessment` (string)
   - `risks` (array of strings)
   - `strongest_counterargument` (string)
   - `recommendation` (string)
