@@ -73,9 +73,11 @@ fi
 mock_ok="$(mktemp)"
 cat > "$mock_ok" <<'MOCK'
 #!/usr/bin/env bash
-cat <<'JSON'
-{"risks":["r1"],"strongest_counterargument":"c","recommendation":"do x","next_verification":["v1"]}
-JSON
+cat <<'JSONL'
+{"type":"init","timestamp":"2026-03-30T10:00:00.000Z","session_id":"s-ok","model":"gemini-3-pro"}
+{"type":"message","timestamp":"2026-03-30T10:00:01.000Z","role":"assistant","content":"{\"risks\":[\"r1\"],\"strongest_counterargument\":\"c\",\"recommendation\":\"do x\",\"next_verification\":[\"v1\"]}","delta":true}
+{"type":"result","timestamp":"2026-03-30T10:00:02.000Z","status":"success"}
+JSONL
 MOCK
 chmod +x "$mock_ok"
 
@@ -92,20 +94,22 @@ chmod +x "$mock_slow"
 mock_bad_type="$(mktemp)"
 cat > "$mock_bad_type" <<'MOCK'
 #!/usr/bin/env bash
-cat <<'JSON'
-{"risks":[{"bad":1}],"strongest_counterargument":"c","recommendation":"do x","next_verification":["v1"]}
-JSON
+cat <<'JSONL'
+{"type":"init","timestamp":"2026-03-30T10:00:00.000Z","session_id":"s-bad","model":"gemini-3-pro"}
+{"type":"message","timestamp":"2026-03-30T10:00:01.000Z","role":"assistant","content":"{\"risks\":[{\"bad\":1}],\"strongest_counterargument\":\"c\",\"recommendation\":\"do x\",\"next_verification\":[\"v1\"]}","delta":true}
+{"type":"result","timestamp":"2026-03-30T10:00:02.000Z","status":"success"}
+JSONL
 MOCK
 chmod +x "$mock_bad_type"
 
 mock_log_json="$(mktemp)"
 cat > "$mock_log_json" <<'MOCK'
 #!/usr/bin/env bash
-echo "Loaded cached credentials."
-echo "Log: {init}"
-cat <<'JSON'
-{"risks":["r1"],"strongest_counterargument":"c","recommendation":"do x","next_verification":["v1"]}
-JSON
+cat <<'JSONL'
+{"type":"init","timestamp":"2026-03-30T10:00:00.000Z","session_id":"s-wrap","model":"gemini-3-pro"}
+{"type":"message","timestamp":"2026-03-30T10:00:01.000Z","role":"assistant","content":"Note: use this object -> {\"risks\":[\"r1\"],\"strongest_counterargument\":\"c\",\"recommendation\":\"do x\",\"next_verification\":[\"v1\"]} <- end","delta":true}
+{"type":"result","timestamp":"2026-03-30T10:00:02.000Z","status":"success"}
+JSONL
 MOCK
 chmod +x "$mock_log_json"
 
@@ -128,11 +132,22 @@ if [[ " $* " != *" --output-format stream-json "* ]]; then
   echo "missing stream-json output format" >&2
   exit 3
 fi
-cat <<'JSON'
-{"risks":["r1"],"strongest_counterargument":"c","recommendation":"do x","next_verification":["v1"]}
-JSON
+cat <<'JSONL'
+{"type":"init","timestamp":"2026-03-30T10:00:00.000Z","session_id":"s-args","model":"gemini-3-pro"}
+{"type":"message","timestamp":"2026-03-30T10:00:01.000Z","role":"assistant","content":"{\"risks\":[\"r1\"],\"strongest_counterargument\":\"c\",\"recommendation\":\"do x\",\"next_verification\":[\"v1\"]}","delta":true}
+{"type":"result","timestamp":"2026-03-30T10:00:02.000Z","status":"success"}
+JSONL
 MOCK
 chmod +x "$mock_check_args"
+
+mock_raw_only="$(mktemp)"
+cat > "$mock_raw_only" <<'MOCK'
+#!/usr/bin/env bash
+cat <<'JSON'
+{"risks":["r-raw"],"strongest_counterargument":"c-raw","recommendation":"from-raw-only","next_verification":["v-raw"]}
+JSON
+MOCK
+chmod +x "$mock_raw_only"
 
 mock_tree="$(mktemp)"
 cat > "$mock_tree" <<'MOCK'
@@ -192,16 +207,16 @@ else
   ng "invalid-json in fail-open should still return zero"
 fi
 
-# Test 8: extraction handles leading brace logs and still picks valid JSON
+# Test 8: stream assistant text may include wrapper text; candidate extraction still recovers JSON
 if GEMINI_SECOND_OPINION_CMD="$mock_log_json" \
   "$SCRIPT" review-commit "q" < <(printf 'ctx') > /tmp/so_t8_out.json 2>/tmp/so_t8_err.txt; then
   if jq -e '.status=="ok" and .opinion.recommendation=="do x"' /tmp/so_t8_out.json >/dev/null; then
-    ok "robust extraction picks valid JSON object"
+    ok "stream text candidate extraction recovers wrapped JSON"
   else
-    ng "extraction failed with brace-prefixed logs"
+    ng "stream text candidate extraction failed"
   fi
 else
-  ng "brace-prefixed logs should not break parsing"
+  ng "wrapped stream text should still parse"
 fi
 
 # Test 9: stream-json event output is reconstructed correctly
@@ -229,13 +244,25 @@ else
   ng "stream-json output flag should pass"
 fi
 
-# Test 11: timeout cleanup kills process group children
+# Test 11: raw-only output is rejected (no raw fallback path)
+if GEMINI_SECOND_OPINION_CMD="$mock_raw_only" \
+  "$SCRIPT" review-commit "q" < <(printf 'ctx') > /tmp/so_t11_out.json 2>/tmp/so_t11_err.txt; then
+  if jq -e '.status=="fallback" and .reason=="invalid-json"' /tmp/so_t11_out.json >/dev/null; then
+    ok "raw-only output is rejected when stream events are missing"
+  else
+    ng "raw-only rejection payload mismatch"
+  fi
+else
+  ng "raw-only invalid-json in fail-open should still return zero"
+fi
+
+# Test 12: timeout cleanup kills process group children
 child_pid_file="$(mktemp)"
 if GSO_CHILD_PID_FILE="$child_pid_file" \
   GEMINI_SECOND_OPINION_CMD="$mock_tree" \
   GEMINI_SECOND_OPINION_TIMEOUT_SEC=2 \
-  "$SCRIPT" review-commit "q" < <(printf 'ctx') > /tmp/so_t11_out.json 2>/tmp/so_t11_err.txt; then
-  if ! jq -e '.status=="fallback" and .reason=="gemini-timeout"' /tmp/so_t11_out.json >/dev/null; then
+  "$SCRIPT" review-commit "q" < <(printf 'ctx') > /tmp/so_t12_out.json 2>/tmp/so_t12_err.txt; then
+  if ! jq -e '.status=="fallback" and .reason=="gemini-timeout"' /tmp/so_t12_out.json >/dev/null; then
     ng "process-group cleanup timeout payload mismatch"
   elif [[ ! -s "$child_pid_file" ]]; then
     ng "process-group cleanup child pid file missing"
@@ -253,7 +280,7 @@ else
   ng "timeout cleanup probe should return zero in fail-open"
 fi
 
-# Test 12: docs reflect single-path workflow
+# Test 13: docs reflect single-path workflow
 if grep -q "^## Workflow$" "$SKILL_FILE" && \
   grep -q "second_opinion.sh" "$SKILL_FILE" && \
   grep -q "require_escalated" "$SKILL_FILE" && \
@@ -282,21 +309,21 @@ else
   ng "skill docs still contain removed subagent path"
 fi
 
-# Test 13: removed fallback async script
+# Test 14: removed fallback async script
 if [[ ! -e "$SCRIPT_DIR/parallel_review.sh" ]]; then
   ok "parallel_review.sh removed"
 else
   ng "parallel_review.sh should be removed"
 fi
 
-# Test 14: subagent wrapper removed
+# Test 15: subagent wrapper removed
 if [[ ! -e "$SCRIPT_DIR/subagent_second_opinion.sh" ]]; then
   ok "subagent_second_opinion.sh removed"
 else
   ng "subagent_second_opinion.sh should be removed"
 fi
 
-rm -f "$mock_ok" "$mock_slow" "$mock_bad_type" "$mock_log_json" "$mock_stream" "$mock_check_args" "$mock_tree" "$child_pid_file"
+rm -f "$mock_ok" "$mock_slow" "$mock_bad_type" "$mock_log_json" "$mock_stream" "$mock_check_args" "$mock_raw_only" "$mock_tree" "$child_pid_file"
 
 if [[ "$fail" == "0" ]]; then
   echo "All tests passed: $pass"

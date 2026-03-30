@@ -149,8 +149,9 @@ extract_stream_assistant_text() {
   local out_file="$2"
 
   jq -erRn '
-    [inputs | fromjson? | select(type == "object")] as $events
-    | if (($events | length) > 0 and ($events | all(has("type")))) then
+    # Accept only typed stream events and ignore stray non-event JSON lines.
+    [inputs | fromjson? | select(type == "object" and has("type"))] as $events
+    | if (($events | length) > 0) then
         ($events
           | map(select(.type == "message" and .role == "assistant" and (.content | type == "string")) | .content)
           | join(""))
@@ -160,16 +161,16 @@ extract_stream_assistant_text() {
   ' <"$raw_file" >"$out_file"
 }
 
-extract_opinion_json() {
-  local source_file="$1"
+extract_stream_opinion_json() {
+  local stream_text_file="$1"
   local out_file="$2"
 
-  if is_valid_opinion_json "$source_file"; then
-    cp "$source_file" "$out_file"
+  if is_valid_opinion_json "$stream_text_file"; then
+    cp "$stream_text_file" "$out_file"
     return 0
   fi
 
-  extract_valid_json_candidate "$source_file" "$out_file"
+  extract_valid_json_candidate "$stream_text_file" "$out_file"
 }
 
 if [[ $# -lt 2 ]]; then
@@ -306,10 +307,8 @@ if (( rc != 0 )); then
   handle_failure "gemini-failed" "$err_msg" 70
 fi
 
-if extract_stream_assistant_text "$raw_tmp" "$stream_text_tmp" && \
-  extract_opinion_json "$stream_text_tmp" "$json_tmp"; then
-  :
-elif ! extract_opinion_json "$raw_tmp" "$json_tmp"; then
+if ! extract_stream_assistant_text "$raw_tmp" "$stream_text_tmp" || \
+  ! extract_stream_opinion_json "$stream_text_tmp" "$json_tmp"; then
   handle_failure "invalid-json" "Gemini output is not a valid opinion JSON" 70
 fi
 

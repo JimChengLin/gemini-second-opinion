@@ -13,7 +13,7 @@ Lean Codex skill for getting a Gemini second opinion on hard tasks.
 
 - `SKILL.md`: skill instructions and workflow.
 - `scripts/second_opinion.sh`: main second-opinion runner.
-- `scripts/test_v2.sh`: regression tests.
+- `scripts/test.sh`: regression tests.
 - `references/prompt-patterns.md`: prompt/context patterns.
 - `agents/openai.yaml`: skill metadata.
 
@@ -62,7 +62,7 @@ scripts/second_opinion.sh \
 Run tests:
 
 ```bash
-scripts/test_v2.sh
+scripts/test.sh
 ```
 
 Cleanup after local runs:
