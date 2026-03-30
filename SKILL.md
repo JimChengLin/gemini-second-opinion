@@ -66,14 +66,11 @@ Use these fixed starters to reduce ambiguity:
 - `Propose a phased implementation plan ...`
 - `Challenge this implementation plan ...`
 
-Execution controls:
+Execution controls (all optional):
 
-- `GEMINI_SECOND_OPINION_MODEL` (optional override)
 - `GEMINI_SECOND_OPINION_TIMEOUT_SEC` (default `300`)
-- `GEMINI_SECOND_OPINION_MAX_CONTEXT_BYTES` (default `300000`)
-- `GEMINI_SECOND_OPINION_FAILURE_MODE` (`fail-open` or `fail-closed`, default `fail-open`)
-- `GEMINI_SECOND_OPINION_CMD` (default `gemini`)
-- `GEMINI_SECOND_OPINION_APPROVAL_MODE` (default `default`)
+- `GEMINI_SECOND_OPINION_MODEL` (default `auto`)
+- Advanced vars: see `scripts/second_opinion.sh`.
 
 If `context-file` is omitted, pipe context via stdin. If neither is provided, exit `65`.
 

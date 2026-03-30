@@ -91,6 +91,18 @@ JSON
 MOCK
 chmod +x "$mock_slow"
 
+mock_silent="$(mktemp)"
+cat > "$mock_silent" <<'MOCK'
+#!/usr/bin/env bash
+sleep 35
+cat <<'JSONL'
+{"type":"init","timestamp":"2026-03-30T10:00:00.000Z","session_id":"s-silent","model":"gemini-3-pro"}
+{"type":"message","timestamp":"2026-03-30T10:00:01.000Z","role":"assistant","content":"{\"risks\":[\"r1\"],\"strongest_counterargument\":\"c\",\"recommendation\":\"late output\",\"next_verification\":[\"v1\"]}","delta":true}
+{"type":"result","timestamp":"2026-03-30T10:00:02.000Z","status":"success"}
+JSONL
+MOCK
+chmod +x "$mock_silent"
+
 mock_bad_type="$(mktemp)"
 cat > "$mock_bad_type" <<'MOCK'
 #!/usr/bin/env bash
@@ -195,10 +207,23 @@ else
   ng "timeout in fail-open should return zero"
 fi
 
-# Test 7: deep type validation for risks[]
-if GEMINI_SECOND_OPINION_CMD="$mock_bad_type" \
+# Test 7: first-output timeout fallback includes sandbox hint
+if GEMINI_SECOND_OPINION_CMD="$mock_silent" \
+  GEMINI_SECOND_OPINION_TIMEOUT_SEC=40 \
   "$SCRIPT" review-commit "q" < <(printf 'ctx') > /tmp/so_t7_out.json 2>/tmp/so_t7_err.txt; then
-  if jq -e '.status=="fallback" and .reason=="invalid-json"' /tmp/so_t7_out.json >/dev/null; then
+  if jq -e '.status=="fallback" and .reason=="gemini-first-output-timeout" and (.message | test("sandbox"; "i"))' /tmp/so_t7_out.json >/dev/null; then
+    ok "first-output timeout triggers with sandbox hint"
+  else
+    ng "first-output timeout payload mismatch"
+  fi
+else
+  ng "first-output timeout in fail-open should return zero"
+fi
+
+# Test 8: deep type validation for risks[]
+if GEMINI_SECOND_OPINION_CMD="$mock_bad_type" \
+  "$SCRIPT" review-commit "q" < <(printf 'ctx') > /tmp/so_t8_out.json 2>/tmp/so_t8_err.txt; then
+  if jq -e '.status=="fallback" and .reason=="invalid-json"' /tmp/so_t8_out.json >/dev/null; then
     ok "deep type validation rejects non-string risks entries"
   else
     ng "deep type validation payload mismatch"
@@ -207,10 +232,10 @@ else
   ng "invalid-json in fail-open should still return zero"
 fi
 
-# Test 8: stream assistant text may include wrapper text; candidate extraction still recovers JSON
+# Test 9: stream assistant text may include wrapper text; candidate extraction still recovers JSON
 if GEMINI_SECOND_OPINION_CMD="$mock_log_json" \
-  "$SCRIPT" review-commit "q" < <(printf 'ctx') > /tmp/so_t8_out.json 2>/tmp/so_t8_err.txt; then
-  if jq -e '.status=="ok" and .opinion.recommendation=="do x"' /tmp/so_t8_out.json >/dev/null; then
+  "$SCRIPT" review-commit "q" < <(printf 'ctx') > /tmp/so_t9_out.json 2>/tmp/so_t9_err.txt; then
+  if jq -e '.status=="ok" and .opinion.recommendation=="do x"' /tmp/so_t9_out.json >/dev/null; then
     ok "stream text candidate extraction recovers wrapped JSON"
   else
     ng "stream text candidate extraction failed"
@@ -219,11 +244,11 @@ else
   ng "wrapped stream text should still parse"
 fi
 
-# Test 9: stream-json event output is reconstructed correctly
+# Test 10: stream-json event output is reconstructed correctly
 if GEMINI_SECOND_OPINION_CMD="$mock_stream" \
-  "$SCRIPT" review-commit "q" < <(printf 'ctx') > /tmp/so_t9_out.json 2>/tmp/so_t9_err.txt; then
-  if jq -e '.status=="ok" and .opinion.recommendation=="from stream" and .opinion.risks[0]=="r-stream"' /tmp/so_t9_out.json >/dev/null && \
-    grep -q '"type":"message"' /tmp/so_t9_err.txt; then
+  "$SCRIPT" review-commit "q" < <(printf 'ctx') > /tmp/so_t10_out.json 2>/tmp/so_t10_err.txt; then
+  if jq -e '.status=="ok" and .opinion.recommendation=="from stream" and .opinion.risks[0]=="r-stream"' /tmp/so_t10_out.json >/dev/null && \
+    grep -q '"type":"message"' /tmp/so_t10_err.txt; then
     ok "stream-json parsing reconstructs assistant output and mirrors events"
   else
     ng "stream-json reconstruction or stderr mirroring mismatch"
@@ -232,10 +257,10 @@ else
   ng "stream-json output should parse successfully"
 fi
 
-# Test 10: command includes stream-json output flag
+# Test 11: command includes stream-json output flag
 if GEMINI_SECOND_OPINION_CMD="$mock_check_args" \
-  "$SCRIPT" review-commit "q" < <(printf 'ctx') > /tmp/so_t10_out.json 2>/tmp/so_t10_err.txt; then
-  if jq -e '.status=="ok" and .opinion.recommendation=="do x"' /tmp/so_t10_out.json >/dev/null; then
+  "$SCRIPT" review-commit "q" < <(printf 'ctx') > /tmp/so_t11_out.json 2>/tmp/so_t11_err.txt; then
+  if jq -e '.status=="ok" and .opinion.recommendation=="do x"' /tmp/so_t11_out.json >/dev/null; then
     ok "command includes --output-format stream-json"
   else
     ng "stream-json output flag payload mismatch"
@@ -244,10 +269,10 @@ else
   ng "stream-json output flag should pass"
 fi
 
-# Test 11: raw-only output is rejected (no raw fallback path)
+# Test 12: raw-only output is rejected (no raw fallback path)
 if GEMINI_SECOND_OPINION_CMD="$mock_raw_only" \
-  "$SCRIPT" review-commit "q" < <(printf 'ctx') > /tmp/so_t11_out.json 2>/tmp/so_t11_err.txt; then
-  if jq -e '.status=="fallback" and .reason=="invalid-json"' /tmp/so_t11_out.json >/dev/null; then
+  "$SCRIPT" review-commit "q" < <(printf 'ctx') > /tmp/so_t12_out.json 2>/tmp/so_t12_err.txt; then
+  if jq -e '.status=="fallback" and .reason=="invalid-json"' /tmp/so_t12_out.json >/dev/null; then
     ok "raw-only output is rejected when stream events are missing"
   else
     ng "raw-only rejection payload mismatch"
@@ -256,13 +281,13 @@ else
   ng "raw-only invalid-json in fail-open should still return zero"
 fi
 
-# Test 12: timeout cleanup kills process group children
+# Test 13: timeout cleanup kills process group children
 child_pid_file="$(mktemp)"
 if GSO_CHILD_PID_FILE="$child_pid_file" \
   GEMINI_SECOND_OPINION_CMD="$mock_tree" \
   GEMINI_SECOND_OPINION_TIMEOUT_SEC=2 \
-  "$SCRIPT" review-commit "q" < <(printf 'ctx') > /tmp/so_t12_out.json 2>/tmp/so_t12_err.txt; then
-  if ! jq -e '.status=="fallback" and .reason=="gemini-timeout"' /tmp/so_t12_out.json >/dev/null; then
+  "$SCRIPT" review-commit "q" < <(printf 'ctx') > /tmp/so_t13_out.json 2>/tmp/so_t13_err.txt; then
+  if ! jq -e '.status=="fallback" and .reason=="gemini-timeout"' /tmp/so_t13_out.json >/dev/null; then
     ng "process-group cleanup timeout payload mismatch"
   elif [[ ! -s "$child_pid_file" ]]; then
     ng "process-group cleanup child pid file missing"
@@ -280,7 +305,7 @@ else
   ng "timeout cleanup probe should return zero in fail-open"
 fi
 
-# Test 13: docs reflect single-path workflow
+# Test 14: docs reflect single-path workflow
 if grep -q "^## Workflow$" "$SKILL_FILE" && \
   grep -q "second_opinion.sh" "$SKILL_FILE" && \
   grep -q "require_escalated" "$SKILL_FILE" && \
@@ -309,21 +334,21 @@ else
   ng "skill docs still contain removed subagent path"
 fi
 
-# Test 14: removed fallback async script
+# Test 15: removed fallback async script
 if [[ ! -e "$SCRIPT_DIR/parallel_review.sh" ]]; then
   ok "parallel_review.sh removed"
 else
   ng "parallel_review.sh should be removed"
 fi
 
-# Test 15: subagent wrapper removed
+# Test 16: subagent wrapper removed
 if [[ ! -e "$SCRIPT_DIR/subagent_second_opinion.sh" ]]; then
   ok "subagent_second_opinion.sh removed"
 else
   ng "subagent_second_opinion.sh should be removed"
 fi
 
-rm -f "$mock_ok" "$mock_slow" "$mock_bad_type" "$mock_log_json" "$mock_stream" "$mock_check_args" "$mock_raw_only" "$mock_tree" "$child_pid_file"
+rm -f "$mock_ok" "$mock_slow" "$mock_silent" "$mock_bad_type" "$mock_log_json" "$mock_stream" "$mock_check_args" "$mock_raw_only" "$mock_tree" "$child_pid_file"
 
 if [[ "$fail" == "0" ]]; then
   echo "All tests passed: $pass"

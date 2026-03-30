@@ -8,6 +8,7 @@ usage() {
 TICK_MS=200
 TICK_SLEEP_SEC=0.2
 PROGRESS_HEARTBEAT_SEC=30
+FIRST_OUTPUT_TIMEOUT_SEC=30
 mirror_pid=""
 
 calc_max_ticks() {
@@ -79,7 +80,10 @@ run_with_timeout() {
   max_ticks="$(calc_max_ticks "$sec")"
   local heartbeat_ticks
   heartbeat_ticks="$(calc_max_ticks "$PROGRESS_HEARTBEAT_SEC")"
+  local first_output_timeout_ticks
+  first_output_timeout_ticks="$(calc_max_ticks "$FIRST_OUTPUT_TIMEOUT_SEC")"
   local ticks=0
+  local first_output_seen=0
 
   # Start command in a dedicated process group for reliable timeout cleanup.
   perl -e 'setpgrp(0,0) or die "setpgrp failed: $!"; exec @ARGV' "$@" >"$out_file" 2>"$err_file" &
@@ -91,6 +95,19 @@ run_with_timeout() {
   echo "[gemini-second-opinion] waiting for Gemini response (timeout ${sec}s)" >&2
 
   while kill -0 "$pid" 2>/dev/null; do
+    if (( first_output_seen == 0 )); then
+      if [[ -s "$out_file" ]]; then
+        first_output_seen=1
+      elif (( ticks >= first_output_timeout_ticks )); then
+        kill -TERM -- "-$pid" 2>/dev/null || true
+        wait_tick
+        kill -KILL -- "-$pid" 2>/dev/null || true
+        wait "$pid" 2>/dev/null || true
+        stop_stream_mirror
+        return 125
+      fi
+    fi
+
     if (( heartbeat_ticks > 0 && ticks > 0 && ticks % heartbeat_ticks == 0 )); then
       local elapsed_sec
       elapsed_sec=$((ticks * TICK_MS / 1000))
@@ -297,6 +314,9 @@ else
   rc=$?
 fi
 if (( rc != 0 )); then
+  if [[ "$rc" == "125" ]]; then
+    handle_failure "gemini-first-output-timeout" "no stream output within ${FIRST_OUTPUT_TIMEOUT_SEC}s; are you running in sandbox causing timeout?" 70
+  fi
   if [[ "$rc" == "124" ]]; then
     handle_failure "gemini-timeout" "timed out after ${timeout_sec}s" 70
   fi
