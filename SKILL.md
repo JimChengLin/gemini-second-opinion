@@ -154,7 +154,7 @@ git show <commit_sha> > /tmp/review_ctx.txt
 ### Diff review (uncommitted changes)
 
 ```bash
-git diff > /tmp/review_ctx.txt
+git diff --no-color --unified=0 > /tmp/review_ctx.txt
 ~/.codex/skills/gemini-second-opinion/scripts/second_opinion.sh \
   review-diff \
   "Find correctness and regression risks in this diff" \

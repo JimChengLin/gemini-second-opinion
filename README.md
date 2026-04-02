@@ -32,7 +32,7 @@ scripts/second_opinion.sh \
 Review uncommitted diff:
 
 ```bash
-git diff > /tmp/review_ctx.txt
+git diff --no-color --unified=0 > /tmp/review_ctx.txt
 scripts/second_opinion.sh \
   review-diff \
   "Find correctness and regression risks in this diff" \
