@@ -161,10 +161,12 @@ if (( expect_prompt_value || !seen_prompt_flag )); then
   echo "missing -p with empty prompt value" >&2
   exit 4
 fi
-stdin_payload="$(cat)"
+stdin_payload="$(cat; printf '__GSO_SENTINEL__')"
+stdin_payload="${stdin_payload%__GSO_SENTINEL__}"
 if [[ "$stdin_payload" != *"Task type: review-commit"* || \
   "$stdin_payload" != *"Primary question: q"* || \
-  "$stdin_payload" != *$'=== BEGIN_CONTEXT ===\nctx\n=== END_CONTEXT ==='* ]]; then
+  "$stdin_payload" != *$'=== BEGIN_CONTEXT ===\nctx\n=== END_CONTEXT ===\n\nReturn one raw JSON object only (no markdown/code fences, no extra text) with these fields:\n- risks: array of strings\n- strongest_counterargument: string\n- recommendation: string\n- next_verification: array of strings' || \
+  "$stdin_payload" == *$'\n' ]]; then
   echo "prompt payload missing from stdin" >&2
   exit 6
 fi

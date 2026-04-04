@@ -205,6 +205,8 @@ Return one raw JSON object only (no markdown/code fences, no extra text) with th
 - recommendation: string
 - next_verification: array of strings
 PROMPT
+
+  perl -0pi -e 's/\n+\z//' "$out_file"
 }
 
 if [[ $# -lt 2 ]]; then
