@@ -136,6 +136,38 @@ if [[ " $* " != *" --output-format stream-json "* ]]; then
   echo "missing stream-json output format" >&2
   exit 3
 fi
+seen_prompt_flag=0
+expect_prompt_value=0
+for arg in "$@"; do
+  if (( expect_prompt_value )); then
+    if [[ -n "$arg" ]]; then
+      echo "expected empty prompt arg when stdin carries the payload" >&2
+      exit 4
+    fi
+    seen_prompt_flag=1
+    expect_prompt_value=0
+    continue
+  fi
+  if [[ "$arg" == "-p" || "$arg" == "--prompt" ]]; then
+    expect_prompt_value=1
+    continue
+  fi
+  if [[ "$arg" == *"=== BEGIN_CONTEXT ==="* || "$arg" == *"Primary question: q"* || "$arg" == *"ctx"* ]]; then
+    echo "prompt payload should not be passed via argv" >&2
+    exit 5
+  fi
+done
+if (( expect_prompt_value || !seen_prompt_flag )); then
+  echo "missing -p with empty prompt value" >&2
+  exit 4
+fi
+stdin_payload="$(cat)"
+if [[ "$stdin_payload" != *"Task type: review-commit"* || \
+  "$stdin_payload" != *"Primary question: q"* || \
+  "$stdin_payload" != *$'=== BEGIN_CONTEXT ===\nctx\n=== END_CONTEXT ==='* ]]; then
+  echo "prompt payload missing from stdin" >&2
+  exit 6
+fi
 cat <<'JSONL'
 {"type":"init","timestamp":"2026-03-30T10:00:00.000Z","session_id":"s-args","model":"gemini-3-pro"}
 {"type":"message","timestamp":"2026-03-30T10:00:01.000Z","role":"assistant","content":"{\"risks\":[\"r1\"],\"strongest_counterargument\":\"c\",\"recommendation\":\"do x\",\"next_verification\":[\"v1\"]}","delta":true}
@@ -250,16 +282,16 @@ else
   ng "stream-json output should parse successfully"
 fi
 
-# Test 11: command includes stream-json output flag
+# Test 11: command stays headless and sends prompt via stdin
 if GEMINI_SECOND_OPINION_CMD="$mock_check_args" \
   "$SCRIPT" review-commit "q" < <(printf 'ctx') > /tmp/so_t11_out.json 2>/tmp/so_t11_err.txt; then
   if jq -e '.status=="ok" and .opinion.recommendation=="do x"' /tmp/so_t11_out.json >/dev/null; then
-    ok "command includes --output-format stream-json"
+    ok "command uses stdin prompt path in headless mode"
   else
-    ng "stream-json output flag payload mismatch"
+    ng "stdin prompt path payload mismatch"
   fi
 else
-  ng "stream-json output flag should pass"
+  ng "stdin prompt path should pass"
 fi
 
 # Test 12: raw-only output is rejected (no raw fallback path)
