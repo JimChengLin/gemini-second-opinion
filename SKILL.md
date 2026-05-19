@@ -39,6 +39,13 @@ Guidelines:
 - Do not paste large file contents unless absolutely necessary.
 - Gemini read tools are workspace-scoped.
 
+Task-specific context hints:
+
+- `review-commit`: commit hash, intended behavior, diff summary, touched/missing tests, risk surface, known uncertainty.
+- `review-diff`: staged/working-tree scope, diff summary, touched/missing tests, risk surface, known uncertainty.
+- `write-plan`: objective, non-goals, constraints, proposed phases, dependencies/blockers, rollback and verification gates.
+- `double-check`: candidate solution, rationale, assumptions, current evidence, remaining unknowns.
+
 File access order:
 
 1. Set command `workdir` to target root.
@@ -85,12 +92,13 @@ If `context-file` is omitted, pipe context via stdin. If neither is provided, ex
 
 ### 3) Expect structured output
 
-`second_opinion.sh` emits JSON:
+`second_opinion.sh` emits JSON on `ok` and fail-open fallback:
 
 - `status`: `ok` or `fallback`
-- `task_type`, `model`
-- `model`: override value when set, else `auto`
-- `reason`, `message` (fallback only)
+- `task_type`: requested task type
+- `model`: override value when set, otherwise `auto`
+- `reason`: fallback reason, empty on `ok`
+- `message`: fallback detail, empty on `ok`
 - `opinion` (only when `status=ok`):
   - `risks` (array of strings)
   - `strongest_counterargument` (string)

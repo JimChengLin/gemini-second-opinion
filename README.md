@@ -14,7 +14,6 @@ Lean Codex skill for getting a Gemini second opinion on hard tasks.
 - `SKILL.md`: skill instructions and workflow.
 - `scripts/second_opinion.sh`: main second-opinion runner.
 - `scripts/test.sh`: regression tests.
-- `references/prompt-patterns.md`: prompt/context patterns.
 - `agents/openai.yaml`: skill metadata.
 
 ## Quick Start
